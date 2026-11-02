@@ -42,6 +42,12 @@ input{font:inherit;padding:9px 10px;border-radius:10px;border:1px solid var(--bd
 button.p{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600}
 .foot{font-size:12px;color:var(--mut);margin-top:14px;line-height:1.5}
 .link{border:none;padding:0;text-decoration:underline;color:var(--ac)}
+details.set{margin-top:20px}
+details.set>summary{cursor:pointer;list-style:none;padding:12px 16px;background:var(--card);border:1px solid var(--bd);border-radius:14px;font-weight:600}
+details.set>summary::-webkit-details-marker{display:none}
+details.set>summary::after{content:"▾";float:right;color:var(--mut)}
+details.set[open]>summary::after{content:"▴"}
+details.set .add{margin-top:10px}
 </style>
 </head>
 <body>
@@ -49,6 +55,7 @@ button.p{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600}
 <h1>Kaç Gün Kaldı?</h1>
 <p class="sub" id="today"></p>
 <div id="list"></div>
+<details class="set"><summary>Ayarlar</summary>
 <div class="add">
 <h2>Özel gün ekle</h2>
 <div class="row">
@@ -62,6 +69,7 @@ button.p{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600}
 <button class="link" id="reset">Kaldırdığım varsayılan günleri geri getir</button>
 <p>Hicri tarihler hesapla bulunur, Diyanet takvimine göre ±1 gün fark olabilir. Ay başlangıçları hilal gözlemine göre kesinleşir. Tarih yanlışsa kartın yanındaki ✎ ile düzeltebilirsin; düzelttiğin tarih geçince otomatik hesaba döner.</p>
 </div>
+</details>
 </main>
 <script>
 const MS=864e5;
