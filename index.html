@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kaç Gün Kaldı?</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1f7a5a">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f4ef;--card:#fff;--tx:#1d2b24;--mut:#6b7a72;--ac:#1f7a5a;--bd:#e3dfd5;--dan:#b33a3a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121815;--card:#1b2420;--tx:#e8efe9;--mut:#93a39a;--ac:#4cc79a;--bd:#2a3630;--dan:#e07a7a}}
+:root[data-theme="dark"]{--bg:#121815;--card:#1b2420;--tx:#e8efe9;--mut:#93a39a;--ac:#4cc79a;--bd:#2a3630;--dan:#e07a7a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:24px;margin:8px 0 2px}
+.sub{color:var(--mut);font-size:14px;margin:0 0 18px}
+.card{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+.num{min-width:72px;text-align:center}
+.num b{display:block;font-size:30px;line-height:1;color:var(--ac)}
+.num span{font-size:12px;color:var(--mut)}
+.info{flex:1;min-width:0}
+.info h3{margin:0;font-size:16px}
+.info p{margin:3px 0 0;font-size:13px;color:var(--mut)}
+.card.today .num b{color:var(--dan)}
+.card{position:relative;overflow:hidden}
+.card::after{content:"";position:absolute;left:0;bottom:0;height:4px;width:var(--p,0%);background:var(--ac);opacity:.65;border-radius:0 4px 4px 0}
+.card.next{border-color:#f08a24;box-shadow:0 0 0 1px #f08a24;padding-top:20px;padding-bottom:20px}
+.num b{transition:font-size .2s}
+.card.past{opacity:.55}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--bd);background:transparent;color:var(--mut);padding:6px 10px}
+button.x:hover{color:var(--dan);border-color:var(--dan)}
+.add{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px 16px;margin:20px 0 10px}
+.add h2{font-size:16px;margin:0 0 10px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+input{font:inherit;padding:9px 10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);flex:1;min-width:140px}
+button.p{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600}
+.foot{font-size:12px;color:var(--mut);margin-top:14px;line-height:1.5}
+.link{border:none;padding:0;text-decoration:underline;color:var(--ac)}
+</style>
+</head>
+<body>
+<main>
+<h1>Kaç Gün Kaldı?</h1>
+<p class="sub" id="today"></p>
+<div id="list"></div>
+<div class="add">
+<h2>Özel gün ekle</h2>
+<div class="row">
+<input id="nm" placeholder="Adı (ör. Doğum günü)" maxlength="40">
+<input id="dt" type="date">
+<label style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--mut)"><input type="checkbox" id="yr" style="flex:none;min-width:0;width:auto"> Her yıl tekrarla</label>
+<button class="p" id="addBtn">Ekle</button>
+</div>
+</div>
+<div class="foot">
+<button class="link" id="reset">Kaldırdığım varsayılan günleri geri getir</button>
+<p>Hicri tarihler hesapla bulunur, Diyanet takvimine göre ±1 gün fark olabilir. Ay başlangıçları hilal gözlemine göre kesinleşir. Tarih yanlışsa kartın yanındaki ✎ ile düzeltebilirsin; düzelttiğin tarih geçince otomatik hesaba döner.</p>
+</div>
+</main>
+<script>
+const MS=864e5;
+const KEY_HID="gs_hidden", KEY_CUS="gs_custom";
+const OVERRIDE={ramazan:["2027-02-08"],ramazanb:["2027-03-10"],kurban:["2027-05-17"]};
+const DEFAULTS=[
+ {id:"yilbasi",name:"Yılbaşı",type:"fixed",m:1,d:1},
+ {id:"hicri",name:"Hicri yılbaşı (1 Muharrem)",type:"hijri",hm:1,hd:1},
+ {id:"recep",name:"Recep ayı başlangıcı",type:"hijri",hm:7,hd:1},
+ {id:"saban",name:"Şaban ayı başlangıcı",type:"hijri",hm:8,hd:1},
+ {id:"ramazan",name:"Ramazan başlangıcı",type:"hijri",hm:9,hd:1},
+ {id:"ramazanb",name:"Ramazan Bayramı",type:"hijri",hm:10,hd:1},
+ {id:"kurban",name:"Kurban Bayramı",type:"hijri",hm:12,hd:10}
+];
+function load(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def}catch(e){return def}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+let hidden=load(KEY_HID,[]), custom=load(KEY_CUS,[]), ovr=load("gs_ovr",{}), editing=null;
+function mid(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
+function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+const hf=new Intl.DateTimeFormat("en-u-ca-islamic-umalqura",{month:"numeric",day:"numeric"});
+function hijriNext(hm,hd,from){
+ for(let i=0;i<400;i++){
+  const d=new Date(from.getTime()+i*MS), p=hf.formatToParts(d);
+  const m=+p.find(x=>x.type==="month").value, dd=+p.find(x=>x.type==="day").value;
+  if(m===hm&&dd===hd)return d;
+ }
+ return null;
+}
+function resolve(ev,now){
+ if(ev.id&&ovr[ev.id]){const[y,m,dd]=ovr[ev.id].split("-").map(Number);const od=new Date(y,m-1,dd);if(od>=now)return od}
+ if(ev.type==="fixed"){
+  let d=new Date(now.getFullYear(),ev.m-1,ev.d);
+  if(d<now)d=new Date(now.getFullYear()+1,ev.m-1,ev.d);
+  return d;
+ }
+ if(ev.type==="hijri"){
+  let d=hijriNext(ev.hm,ev.hd,now);
+  const o=OVERRIDE[ev.id];
+  if(o){for(const s of o){const[y,m,dd]=s.split("-").map(Number);const od=new Date(y,m-1,dd);
+   if(d&&Math.abs(od-d)<=3*MS)d=od; else if(!d&&od>=now)d=od;}
+   if(d&&d<now){const f=o.map(s=>{const[y,m,dd]=s.split("-").map(Number);return new Date(y,m-1,dd)}).find(x=>x>=now);if(f)d=f}}
+  return d;
+ }
+ const[y,m,dd]=ev.date.split("-").map(Number);
+ if(ev.yearly){let d=new Date(now.getFullYear(),m-1,dd);if(d<now)d=new Date(now.getFullYear()+1,m-1,dd);return d}
+ return new Date(y,m-1,dd);
+}
+const fmt=new Intl.DateTimeFormat("tr-TR",{day:"numeric",month:"long",year:"numeric",weekday:"long"});
+function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+const ICON={yilbasi:"1",hicri:"🌙",recep:"الله",saban:"محمد",ramazan:"📖",ramazanb:"🎉",kurban:"🐑"};
+function infoP(it){
+ if(editing===it.e.id)return `<p><input type="date" id="edv" value="${iso(it.d)}" style="min-width:0;padding:6px 8px"> <button class="p" data-act="save" data-id="${it.e.id}">Kaydet</button> <button data-act="auto" data-id="${it.e.id}">Otomatik</button> <button data-act="cancel">Vazgeç</button></p>`;
+ return `<p>${fmt.format(it.d)}${ovr[it.e.id]?" · elle düzeltildi":""}${it.e.yearly?" · her yıl":""}</p>`;
+}
+function render(){
+ const now=mid(new Date());
+ let hj="";try{const HAY=["Muharrem","Safer","Rebiülevvel","Rebiülahir","Cemaziyelevvel","Cemaziyelahir","Recep","Şaban","Ramazan","Şevval","Zilkade","Zilhicce"];const p=new Intl.DateTimeFormat("en-u-ca-islamic-umalqura",{day:"numeric",month:"numeric",year:"numeric"}).formatToParts(now);const g=t=>p.find(x=>x.type===t).value;hj=g("day")+" "+HAY[+g("month")-1]+" "+g("year")}catch(e){}
+ document.getElementById("today").textContent="Bugün: "+fmt.format(now)+(hj?" · "+hj:"");
+ const items=[];
+ DEFAULTS.filter(e=>!hidden.includes(e.id)).forEach(e=>{const d=resolve(e,now);if(d)items.push({e,d,def:true})});
+ custom.forEach(e=>items.push({e:{...e,type:"custom"},d:resolve({type:"custom",date:e.date,yearly:e.yearly},now),def:false}));
+ items.forEach(it=>it.n=Math.round((it.d-now)/MS));
+ items.sort((a,b)=>(a.n<0)-(b.n<0)||(a.n<0?b.n-a.n:a.n-b.n));
+ const L=document.getElementById("list");
+ if(!items.length){L.innerHTML='<p class="sub">Gösterilecek gün yok. Aşağıdan ekleyebilirsin.</p>';return}
+ const fu=items.findIndex(x=>x.n>=0);
+ L.innerHTML=items.map((it,i)=>{
+  const n=it.n, cls=(n===0?"today":n<0?"past":"")+(i===fu&&n>0?" next":"");
+  const sz=n<0?22:n===0?34:n<=7?60:n<=30?46:n<=90?36:n<=180?28:22, w=sz+34, pct=n<0?0:Math.round((1-Math.min(n,365)/365)*100);
+  const big=n===0?"Bugün":Math.abs(n), small=n===0?"":(n<0?"gün önce":"gün kaldı");
+  return `<div class="card ${cls}" style="--p:${pct}%"><div class="num" style="min-width:${w}px"><b style="font-size:${sz}px">${big}</b><span>${small}</span></div>
+  <div class="info"><h3>${esc(it.e.name)}</h3>${infoP(it)}</div>
+  ${it.def&&it.e.type==="hijri"?`<button class="ed" data-id="${it.e.id}" title="Tarihi düzelt" aria-label="Tarihi düzelt">✎</button>`:""}<button class="x" data-id="${it.e.id}" data-def="${it.def?1:0}" title="Kaldır" aria-label="Kaldır">✕</button></div>`}).join("");
+}
+document.getElementById("list").addEventListener("click",ev=>{
+ const a=ev.target.closest("button[data-act],button.ed");
+ if(a){const id=a.dataset.id;
+  if(a.classList.contains("ed")){editing=id}
+  else if(a.dataset.act==="save"){const v=document.getElementById("edv").value;if(v){ovr[id]=v;save("gs_ovr",ovr)}editing=null}
+  else if(a.dataset.act==="auto"){delete ovr[id];save("gs_ovr",ovr);editing=null}
+  else editing=null;
+  render();return}
+ const b=ev.target.closest("button.x");if(!b)return;
+ const id=b.dataset.id;
+ if(b.dataset.def==="1"){hidden.push(id);save(KEY_HID,hidden)}
+ else{custom=custom.filter(c=>c.id!==id);save(KEY_CUS,custom)}
+ render();
+});
+document.getElementById("addBtn").onclick=()=>{
+ const nm=document.getElementById("nm").value.trim(), dt=document.getElementById("dt").value;
+ if(!nm||!dt){alert("Ad ve tarih gir.");return}
+ custom.push({id:"c"+Date.now(),name:nm,date:dt,yearly:document.getElementById("yr").checked});save(KEY_CUS,custom);
+ document.getElementById("nm").value="";document.getElementById("dt").value="";document.getElementById("yr").checked=false;
+ render();
+};
+document.getElementById("reset").onclick=()=>{hidden=[];save(KEY_HID,hidden);render()};
+render();
+</script>
+<script>
+if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})})}
+</script>
+</body>
+</html>
